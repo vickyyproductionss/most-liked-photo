@@ -1,0 +1,69 @@
+{
+  "project_info": {
+    "project_number": "386042155782",
+    "firebase_url": "https://instagram2-c6202-default-rtdb.firebaseio.com",
+    "project_id": "instagram2-c6202",
+    "storage_bucket": "instagram2-c6202.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:386042155782:android:6c05e1887087c732678487",
+        "android_client_info": {
+          "package_name": "com.VGamesproductions.Mostlikedphoto"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "386042155782-8ubbvkh0rv71ru5bp26bilbt5jmdt8do.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAnK73KFC63dWqSwGrPU_xjOaI1xBL5wUM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "386042155782-8ubbvkh0rv71ru5bp26bilbt5jmdt8do.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:386042155782:android:4736dd75533aaf28678487",
+        "android_client_info": {
+          "package_name": "com.vickychaudhary.instagram"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "386042155782-8ubbvkh0rv71ru5bp26bilbt5jmdt8do.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAnK73KFC63dWqSwGrPU_xjOaI1xBL5wUM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "386042155782-8ubbvkh0rv71ru5bp26bilbt5jmdt8do.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
