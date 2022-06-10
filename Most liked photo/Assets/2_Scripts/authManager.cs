@@ -4,9 +4,14 @@ using UnityEngine;
 using TMPro;
 using Firebase.Auth;
 using Firebase;
+using Firebase.Database;
+using Firebase.Extensions;
 
 public class authManager : MonoBehaviour
 {
+    DatabaseReference reference;
+    public GameObject LoginPanel;
+    public GameObject AccountPanel;
     [Header("Firebase")]
     public DependencyStatus dependencyStatus;
     public FirebaseAuth auth;
@@ -34,6 +39,7 @@ public class authManager : MonoBehaviour
     }
     private void Start()
     {
+        reference = FirebaseDatabase.DefaultInstance.RootReference;
         FirebaseApp.CheckAndFixDependenciesAsync().ContinueWith(task =>
         {
             dependencyStatus = task.Result;
@@ -49,7 +55,11 @@ public class authManager : MonoBehaviour
         });
         if(PlayerPrefs.GetInt("authenticated") == 1)
         {
-            UIManager.instance.emailVerificationCompleted();
+            AccountPanel.SetActive(true);
+        }
+        else
+        {
+            LoginPanel.SetActive(true);
         }
     }
 
@@ -115,11 +125,23 @@ public class authManager : MonoBehaviour
             User = LoginTask.Result;
             if (User.IsEmailVerified)
             {
-                confirmLoginText.text = "Logged In";
-                UIManager.instance.emailVerificationCompleted();
-                PlayerPrefs.SetInt("authenticated", 1);
-                PlayerPrefs.SetString("email", User.Email);
-                PlayerPrefs.SetString("name", User.DisplayName);
+                reference.Child("Users").Child(PlayerPrefs.GetString("username")).Child("emailVerified").SetValueAsync("true").ContinueWithOnMainThread(task =>
+                {
+                    if (!task.IsFaulted || !task.IsCanceled)
+                    {
+                        confirmLoginText.text = "Logged In";
+                        UIManager.instance.emailVerificationCompleted();
+                        PlayerPrefs.SetInt("authenticated", 1);
+                        PlayerPrefs.SetString("email", User.Email);
+                        PlayerPrefs.SetString("name", User.DisplayName);
+                        PlayerPrefs.SetString("password", passwordLoginField.text);
+                    }
+                    else
+                    {
+                        confirmLoginText.text = "something went wrong";
+                    }
+                });
+                
                 
             }
             else
@@ -127,7 +149,7 @@ public class authManager : MonoBehaviour
                 confirmLoginText.text = "Verify your email.";
                 verifyEmail();
             }
-            Debug.LogFormat("User signed in successfully: {0} ({1})", User.DisplayName, User.Email);
+            Debug.LogFormat("User signed in successfully:\n {0} ({1})", User.DisplayName, User.Email);
             warningLoginText.text = "";
         }
     }
@@ -140,12 +162,9 @@ public class authManager : MonoBehaviour
             //If the username field is blank show a warning
             warningRegisterText.text = "Missing Username";
         }
-        else if(DatabaseManager.instance.checkExistingUsername(_username) == 1 || DatabaseManager.instance.checkExistingUsername(_username) == 2)
+        else if(_username.Contains(" "))
         {
-            //present = 0 means no childs present
-            //present = 1 means childs present
-            //present = 2 means retrieval failed
-            warningRegisterText.text = "User already exists with same username!!!";
+            warningRegisterText.text = "Remove whitespaces from username!";
         }
         else if (passwordRegisterField.text != passwordRegisterVerifyField.text)
         {
@@ -216,28 +235,66 @@ public class authManager : MonoBehaviour
                         if (User.IsEmailVerified)
                         {
                             PlayerPrefs.SetString("username", _username);
-                            if (DatabaseManager.instance.checkExistingUsername(_username) == 0)
+                            reference.Child("Users").Child(_username).Child("emailVerified").SetValueAsync("true").ContinueWithOnMainThread(task =>
                             {
-                                User newUser = new User();
-                                newUser.email = _email;
-                                newUser.username = _username;
-                                newUser.personalName = _username;
-                                newUser.password = _password;
-                                newUser.followersCount = "0";
-                                newUser.followingCount = "0";
-                                newUser.UID = DatabaseManager.instance.countTotalUsers().ToString();
-                                newUser.totalPosts = "0";
-                                UIManager.instance.LoginScreen();
-                            }
-                            else
-                            {
-                                UIManager.instance.LoginScreen();
-                            }
+                                if(!task.IsFaulted||!task.IsCanceled)
+                                {
+                                    warningRegisterText.text = "you can login now.";
+                                    UIManager.instance.LoginScreen();
+                                }
+                                else
+                                {
+                                    warningRegisterText.text = "something went wrong";
+                                }
+                            });
                         }
                         else
                         {
-                            warningRegisterText.text = "Verify your email first.";
-                            verifyEmail();
+                            reference.Child("Users").GetValueAsync().ContinueWithOnMainThread(task =>
+                            {
+                                if (task.IsCompleted || task.IsCompletedSuccessfully)
+                                {
+                                    DataSnapshot snapshot = task.Result;
+                                    User newUser = new User();
+                                    newUser.email = _email;
+                                    newUser.username = _username;
+                                    newUser.personalName = _username;
+                                    newUser.password = _password;
+                                    newUser.followersCount = "0";
+                                    newUser.followingCount = "0";
+                                    newUser.totalPosts = "0";
+                                    newUser.emailVerified = "false";
+                                    newUser.UID = (snapshot.ChildrenCount + 1).ToString();
+                                    string json = JsonUtility.ToJson(newUser);
+                                    UIManager.instance.LoginScreen();
+                                    reference.Child("Users").GetValueAsync().ContinueWithOnMainThread(task2 =>
+                                    {
+                                        if (task2.IsCompleted || task2.IsCompletedSuccessfully)
+                                        {
+                                            DataSnapshot snapshot = task.Result;
+                                            if (!snapshot.Child(newUser.username).Exists)
+                                            {
+                                                reference.Child("Users").Child(newUser.username).SetRawJsonValueAsync(json).ContinueWithOnMainThread(task2 =>
+                                                {
+                                                    if (!task2.IsCanceled || !task2.IsFaulted)
+                                                    {
+                                                        warningRegisterText.text = "Verify your email first.";
+                                                        verifyEmail();
+                                                    }
+                                                });
+                                            }
+                                            else
+                                            {
+                                                warningRegisterText.text = "User already exists with same username!!!";
+                                            }
+                                        }
+                                        else if (task2.IsCanceled || task2.IsFaulted)
+                                        {
+                                            warningRegisterText.text = "something went wrong";
+                                        }
+                                    });
+                                }
+                            });
                         }
                     }
                 }

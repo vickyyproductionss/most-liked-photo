@@ -14,9 +14,6 @@ public class scrollViewResizer : MonoBehaviour
         float distFromTop = this.gameObject.GetComponent<RectTransform>().localPosition.y;
         float currentHeight = this.gameObject.GetComponent<RectTransform>().sizeDelta.y;
         float newHeight = Screen.height - (-distFromTop - currentHeight/2);
-        Debug.Log("dist from top:" + distFromTop);
-        Debug.Log("screenHeight:" + Screen.height);
-        Debug.Log("new height:" + newHeight);
         newHeight = newHeight / 2;
         newHeight = newHeight - (80 / (2* canvas.transform.localScale.x));
         this.gameObject.GetComponent<RectTransform>().sizeDelta = new Vector2(this.gameObject.GetComponent<RectTransform>().sizeDelta.x, newHeight);

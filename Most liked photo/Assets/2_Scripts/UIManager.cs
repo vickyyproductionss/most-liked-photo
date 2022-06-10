@@ -29,7 +29,7 @@ public class UIManager : MonoBehaviour
         {
             clearUI();
             verificationScreen.SetActive(true);
-            verificationScreen.transform.GetChild(0).GetComponent<TMP_Text>().text = "Please check your email :" +emailID + " to verify.\n check your spam folder too...";
+            verificationScreen.transform.GetChild(0).GetComponent<TMP_Text>().text = "Please check your email :\n " +emailID + " \nto verify.\n check your spam folder too...";
         }    
     }
     public void clearUI()
