@@ -3,14 +3,14 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using Firebase.Storage;
+using Firebase.Firestore;
 using Firebase;
-using Firebase.Database;
 using Firebase.Extensions;
 
 public class StorageManager : MonoBehaviour
 {
     FirebaseStorage storage;
-    DatabaseReference reference;
+    FirebaseFirestore db;
     public GameObject previewPost;
     public GameObject postParent;
     public GameObject mostLikedPanel;
@@ -27,55 +27,52 @@ public class StorageManager : MonoBehaviour
     void Start()
     {
         storage = FirebaseStorage.DefaultInstance;
-        reference = FirebaseDatabase.DefaultInstance.RootReference;
+        db = FirebaseFirestore.DefaultInstance;
         getAllPosts();
     }
 
     public void getAllPosts()
     {
-        reference = FirebaseDatabase.DefaultInstance.RootReference;
-        for (int i =0; i < postParent.transform.childCount; i++)
+        for (int i = 0; i < postParent.transform.childCount; i++)
         {
             Destroy(postParent.transform.GetChild(i).gameObject);
         }
-        reference.Child("Users").GetValueAsync().ContinueWithOnMainThread(task =>
-        {
-            if (task.IsCompleted || task.IsCompletedSuccessfully)
+        string myUsername = PlayerPrefs.GetString("Username");
+        Query postRef = db.Collection("Users").Document(myUsername).Collection("Posts");
+        postRef.GetSnapshotAsync().ContinueWithOnMainThread(task =>{
+            if(!task.IsFaulted || !task.IsCanceled)
             {
-                DataSnapshot snapshot = task.Result;
-                foreach(var child in snapshot.Child(PlayerPrefs.GetString("username")).Child("posts").Children)
+                QuerySnapshot snapshot = task.Result;
+                foreach (DocumentSnapshot ds in snapshot.Documents)
                 {
-                    getImageByUsernameAndPostName(PlayerPrefs.GetString("username"), child.Value.ToString());
+                    
+                    Dictionary<string, object> posts = ds.ToDictionary();
+                    foreach(KeyValuePair<string, object> pair in posts)
+                    {
+                        getImageByUsernameAndPostName(PlayerPrefs.GetString("username"),pair.Value.ToString());
+                    }
                 }
-                
-            }
-            else if (task.IsCanceled || task.IsFaulted)
-            {
-
             }
         });
-        
     }
 
     string conString(int num)
     {
         string rVal = "";
         rVal = (num+1).ToString();
-        Debug.Log("convertde is : " + rVal);
         return rVal;
     }
 
-    void getImageByUsernameAndPostName(string username, string postname)
+    void getImageByUsernameAndPostName(string username, string postURL)
     {
         GameObject goWithImage = Instantiate(previewPost);
         goWithImage.transform.parent = postParent.transform;
         goWithImage = goWithImage.transform.GetChild(0).gameObject;
-        string path = "gs://instagram2-c6202.appspot.com/posts/" + username + "/" + postname;
+        string path = "gs://instagram2-c6202.appspot.com/"+ postURL;
         FirebaseStorage storageReference = FirebaseStorage.DefaultInstance;
         var imageReference = storageReference.GetReferenceFromUrl(path);
         imageReference.GetBytesAsync(1000*1000).ContinueWithOnMainThread((System.Threading.Tasks.Task<byte[]> task3) =>
         {
-            Debug.Log("7");
             if (!task3.IsFaulted && !task3.IsCanceled)
             {
                 byte[] fileContents = task3.Result;
@@ -88,6 +85,10 @@ public class StorageManager : MonoBehaviour
                 ////if you need sprite for SpriteRenderer or Image
                 //Sprite _sprite = Sprite.Create(texture, new Rect(0.0f, 0.0f, texture.width,
                 //texture.height), new Vector2(0.5f, 0.5f), 100.0f);
+            }
+            else
+            {
+                Debug.Log("not found");
             }
         });
     }

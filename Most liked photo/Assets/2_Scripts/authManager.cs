@@ -4,12 +4,12 @@ using UnityEngine;
 using TMPro;
 using Firebase.Auth;
 using Firebase;
-using Firebase.Database;
+using Firebase.Firestore;
 using Firebase.Extensions;
 
 public class authManager : MonoBehaviour
 {
-    DatabaseReference reference;
+    FirebaseFirestore db;
     public GameObject LoginPanel;
     public GameObject AccountPanel;
     [Header("Firebase")]
@@ -35,11 +35,11 @@ public class authManager : MonoBehaviour
     void Awake()
     {
         //Check that all of the necessary dependencies for Firebase are present on the system
-        
+
     }
     private void Start()
     {
-        reference = FirebaseDatabase.DefaultInstance.RootReference;
+        db = FirebaseFirestore.DefaultInstance;
         FirebaseApp.CheckAndFixDependenciesAsync().ContinueWith(task =>
         {
             dependencyStatus = task.Result;
@@ -125,24 +125,59 @@ public class authManager : MonoBehaviour
             User = LoginTask.Result;
             if (User.IsEmailVerified)
             {
-                reference.Child("Users").Child(PlayerPrefs.GetString("username")).Child("emailVerified").SetValueAsync("true").ContinueWithOnMainThread(task =>
+                DocumentReference docRef = db.Collection("Users").Document(User.DisplayName);
+                docRef.GetSnapshotAsync().ContinueWithOnMainThread(task =>
                 {
-                    if (!task.IsFaulted || !task.IsCanceled)
+                    DocumentSnapshot snapshot = task.Result;
+                    if (snapshot.Exists)
                     {
-                        confirmLoginText.text = "Logged In";
+                        //check for login details
                         UIManager.instance.emailVerificationCompleted();
                         PlayerPrefs.SetInt("authenticated", 1);
-                        PlayerPrefs.SetString("email", User.Email);
-                        PlayerPrefs.SetString("name", User.DisplayName);
-                        PlayerPrefs.SetString("password", passwordLoginField.text);
+                        PlayerPrefs.SetString("Username", User.DisplayName);
+
                     }
-                    else
+                    else if (!snapshot.Exists)
                     {
-                        confirmLoginText.text = "something went wrong";
+                        DocumentReference docRef = db.Collection("Users").Document(User.DisplayName);
+                        Dictionary<string, object> user = new Dictionary<string, object>
+                                    {
+                                        { "Email", _email },
+                                        { "Username", User.DisplayName},
+                                        { "PersonalName", User.DisplayName},
+                                        { "Password", _password},
+                                        { "FollowersCount", "0"},
+                                        { "FollowingCount", "0"},
+                                        { "IsEmailVerified", "true"},
+                                    };
+                        DocumentReference Emails = db.Collection("Emails").Document(User.DisplayName);
+                        Dictionary<string, object> email = new Dictionary<string, object>
+                                    {
+                                        { "Email", _email },
+                                        { "Username", User.DisplayName},
+                                        { "Password", _password},
+                                    };
+
+                        PlayerPrefs.SetString("Email", _email);
+                        PlayerPrefs.SetString("Username", User.DisplayName);
+                        PlayerPrefs.SetString("Password", _password);
+                        docRef.SetAsync(user).ContinueWithOnMainThread(task3 => {
+                            if (!task3.IsFaulted || !task3.IsCanceled)
+                            {
+                                Debug.Log("here13");
+                                Emails.SetAsync(email).ContinueWithOnMainThread(task2 => {
+                                    if (!task2.IsFaulted || !task2.IsCanceled)
+                                    {
+                                        //do login here
+                                        UIManager.instance.emailVerificationCompleted();
+                                        PlayerPrefs.SetInt("authenticated", 1);
+                                    }
+                                });
+                            }
+                        });
+                        //add user to the database
                     }
                 });
-                
-                
             }
             else
             {
@@ -235,64 +270,58 @@ public class authManager : MonoBehaviour
                         if (User.IsEmailVerified)
                         {
                             PlayerPrefs.SetString("username", _username);
-                            reference.Child("Users").Child(_username).Child("emailVerified").SetValueAsync("true").ContinueWithOnMainThread(task =>
-                            {
-                                if(!task.IsFaulted||!task.IsCanceled)
+                            DocumentReference docRef = db.Collection("Users").Document(_username);
+                            Dictionary<string, object> user = new Dictionary<string, object>
+                                    {
+                                        { "Email", _email },
+                                        { "Username", _username},
+                                        { "PersonalName", _username},
+                                        { "Password", _password},
+                                        { "FollowersCount", "0"},
+                                        { "FollowingCount", "0"},
+                                        { "IsEmailVerified", "true"},
+                                    };
+                            DocumentReference Emails = db.Collection("Emails").Document(_email);
+                            Dictionary<string, object> email = new Dictionary<string, object>
+                                    {
+                                        { "Email", _email },
+                                        { "Username", _username},
+                                        { "Password", _password},
+                                    };
+
+                            PlayerPrefs.SetString("Email", _email);
+                            PlayerPrefs.SetString("Username", _username);
+                            PlayerPrefs.SetString("Password", _password);
+                            docRef.SetAsync(user).ContinueWithOnMainThread(task => {
+                                if(!task.IsFaulted || !task.IsCanceled)
                                 {
-                                    warningRegisterText.text = "you can login now.";
-                                    UIManager.instance.LoginScreen();
-                                }
-                                else
-                                {
-                                    warningRegisterText.text = "something went wrong";
+                                    docRef.SetAsync(email).ContinueWithOnMainThread(task2 => {
+                                        if(!task2.IsFaulted || !task2.IsCanceled)
+                                        {
+                                            warningRegisterText.text = "you can login now.";
+                                            UIManager.instance.LoginScreen();
+                                        }
+                                    });
                                 }
                             });
                         }
                         else
                         {
-                            reference.Child("Users").GetValueAsync().ContinueWithOnMainThread(task =>
+                            DocumentReference docRef = db.Collection("Users").Document(_username);
+                            docRef.GetSnapshotAsync().ContinueWithOnMainThread(task =>
                             {
-                                if (task.IsCompleted || task.IsCompletedSuccessfully)
+                                DocumentSnapshot snapshot = task.Result;
+                                if(snapshot.Exists)
                                 {
-                                    DataSnapshot snapshot = task.Result;
-                                    User newUser = new User();
-                                    newUser.email = _email;
-                                    newUser.username = _username;
-                                    newUser.personalName = _username;
-                                    newUser.password = _password;
-                                    newUser.followersCount = "0";
-                                    newUser.followingCount = "0";
-                                    newUser.totalPosts = "0";
-                                    newUser.emailVerified = "false";
-                                    newUser.UID = (snapshot.ChildrenCount + 1).ToString();
-                                    string json = JsonUtility.ToJson(newUser);
-                                    UIManager.instance.LoginScreen();
-                                    reference.Child("Users").GetValueAsync().ContinueWithOnMainThread(task2 =>
-                                    {
-                                        if (task2.IsCompleted || task2.IsCompletedSuccessfully)
-                                        {
-                                            DataSnapshot snapshot = task.Result;
-                                            if (!snapshot.Child(newUser.username).Exists)
-                                            {
-                                                reference.Child("Users").Child(newUser.username).SetRawJsonValueAsync(json).ContinueWithOnMainThread(task2 =>
-                                                {
-                                                    if (!task2.IsCanceled || !task2.IsFaulted)
-                                                    {
-                                                        warningRegisterText.text = "Verify your email first.";
-                                                        verifyEmail();
-                                                    }
-                                                });
-                                            }
-                                            else
-                                            {
-                                                warningRegisterText.text = "User already exists with same username!!!";
-                                            }
-                                        }
-                                        else if (task2.IsCanceled || task2.IsFaulted)
-                                        {
-                                            warningRegisterText.text = "something went wrong";
-                                        }
-                                    });
+                                    warningRegisterText.text = "Username already exists.";
+                                }
+                                else if(!snapshot.Exists)
+                                {
+                                    warningRegisterText.text = "Verify your email first.";
+                                    PlayerPrefs.SetString("Email", _email);
+                                    PlayerPrefs.SetString("Username", _username);
+                                    PlayerPrefs.SetString("Password", _password);
+                                    verifyEmail();
                                 }
                             });
                         }

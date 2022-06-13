@@ -15,9 +15,7 @@ public class GameManager : MonoBehaviour
 {
     FirebaseStorage storage;
     public GameObject previewPostPrefab;
-    public GameObject accountPanel;
-    public GameObject createPostPanel;
-    public GameObject topPostPanel;
+    public List<GameObject> AllPanels;
     void Start()
     {
 #if UNITY_ANDROID
